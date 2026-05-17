@@ -24,7 +24,8 @@ SCHEDULE_FIELDS = (
     "dep_time_utc,arr_time_utc,status,aircraft_icao,"
     "dep_delayed,arr_delayed,delayed,"
     "dep_actual_utc,arr_actual_utc,"
-    "dep_estimated_utc,arr_estimated_utc"
+    "dep_estimated_utc,arr_estimated_utc,"
+    "cs_airline_iata,cs_flight_iata"
 )
 
 
@@ -145,10 +146,14 @@ class FlightCache:
 
         flights: list[dict] = []
         for raw in arrivals_raw:
+            if raw.get("cs_airline_iata") or raw.get("cs_flight_iata"):
+                continue
             flight = _build_flight(raw, "arrival")
             if flight:
                 flights.append(flight)
         for raw in departures_raw:
+            if raw.get("cs_airline_iata") or raw.get("cs_flight_iata"):
+                continue
             flight = _build_flight(raw, "departure")
             if flight:
                 flights.append(flight)
