@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: #111827;
+    color: #f9fafb;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    overscroll-behavior: none;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+}
