@@ -47,9 +47,10 @@ class AeroDataBoxCache:
 
         now_utc = datetime.now(timezone.utc)
         offset = timedelta(hours=AIRPORT_UTC_OFFSET_HOURS)
-        # Wide window: 2 hours ago to 14 hours ahead (local), so DST ±1h doesn't matter
-        from_local = (now_utc + offset - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M")
-        to_local = (now_utc + offset + timedelta(hours=14)).strftime("%Y-%m-%dT%H:%M")
+        now_local = now_utc + offset
+        # AeroDataBox caps the window at 12 hours; keep from/to within that limit
+        from_local = (now_local - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M")
+        to_local = (now_local + timedelta(hours=10)).strftime("%Y-%m-%dT%H:%M")
 
         url = f"{BASE_URL}/flights/airports/iata/{AIRPORT_IATA}/{from_local}/{to_local}"
         params = {
@@ -69,13 +70,14 @@ class AeroDataBoxCache:
             resp = await client.get(url, params=params, headers=headers)
         resp.raise_for_status()
 
-        lookup: dict[str, str] = {}
+        lookup: dict[str, dict] = {}
         data = resp.json()
         for flight in (*data.get("departures", []), *data.get("arrivals", [])):
-            model = flight.get("aircraft", {}).get("model")
+            aircraft = flight.get("aircraft", {})
+            model = aircraft.get("model")
             number = flight.get("number", "").replace(" ", "")
             if number and model:
-                lookup[number] = model
+                lookup[number] = {"model": model, "reg": aircraft.get("reg")}
 
         logger.info("AeroDataBox: loaded %d aircraft mappings", len(lookup))
         return lookup

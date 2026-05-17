@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 import aerodatabox_service
+import planespotters_service
 from data.aircraft_types import get_aircraft_name
 from data.airline_names import get_airline_name
 from data.airport_cities import get_city_name
@@ -177,8 +178,12 @@ class FlightCache:
                 raw.update(live_lookup[raw["flight_iata"]])
             flight = _build_flight(raw, "arrival")
             if flight:
-                if not flight["aircraft_type"] and flight["flight_number"] in adb_lookup:
-                    flight["aircraft_type"] = adb_lookup[flight["flight_number"]]
+                if flight["flight_number"] in adb_lookup:
+                    adb = adb_lookup[flight["flight_number"]]
+                    if not flight["aircraft_type"]:
+                        flight["aircraft_type"] = adb["model"]
+                    if not flight["reg_number"] and adb.get("reg"):
+                        flight["reg_number"] = adb["reg"]
                 flights.append(flight)
         for raw in departures_raw:
             if raw.get("cs_airline_iata") or raw.get("cs_flight_iata"):
@@ -187,8 +192,12 @@ class FlightCache:
                 raw.update(live_lookup[raw["flight_iata"]])
             flight = _build_flight(raw, "departure")
             if flight:
-                if not flight["aircraft_type"] and flight["flight_number"] in adb_lookup:
-                    flight["aircraft_type"] = adb_lookup[flight["flight_number"]]
+                if flight["flight_number"] in adb_lookup:
+                    adb = adb_lookup[flight["flight_number"]]
+                    if not flight["aircraft_type"]:
+                        flight["aircraft_type"] = adb["model"]
+                    if not flight["reg_number"] and adb.get("reg"):
+                        flight["reg_number"] = adb["reg"]
                 flights.append(flight)
 
         flights.sort(key=_effective_time)
@@ -214,6 +223,14 @@ async def get_flights() -> dict:
 
     for flight in future:
         flight.update(estimate_visibility(flight.get("aircraft_code"), flight.get("airline_iata")))
+
+    unique_regs = list({f["reg_number"] for f in future if f.get("reg_number")})
+    if unique_regs:
+        photos = await asyncio.gather(*[planespotters_service.get_photo(r) for r in unique_regs])
+        photo_by_reg = {reg: photo for reg, photo in zip(unique_regs, photos) if photo}
+        for flight in future:
+            if flight.get("reg_number") and flight["reg_number"] in photo_by_reg:
+                flight.update(photo_by_reg[flight["reg_number"]])
 
     next_flight = future[0] if future else None
     upcoming = future[1:]

@@ -29,50 +29,78 @@ export default function NextFlight({ flight }) {
   const countdown = formatCountdown(displayTime)
 
   return (
-    <div className={`rounded-2xl border ${borderColor} ${bgGlow} p-5 space-y-3`}>
-      {/* Direction label */}
-      <div className="flex items-center justify-between">
-        <span className={`text-xs font-bold uppercase tracking-[0.2em] ${accentColor}`}>
-          {isArrival ? '▼ Arriving' : '▲ Departing'}
-        </span>
-        <StatusBadge status={flight.status} delayMinutes={flight.delay_minutes} />
-      </div>
-
-      {/* Airline + flight number */}
-      <div className="text-3xl font-bold tracking-tight text-white leading-tight">
-        {flightLabel(flight.flight_number, flight.airline_iata, flight.airline)}
-      </div>
-
-      {/* Origin / destination */}
-      <div className="flex items-center gap-2 text-lg font-semibold text-white">
-        <span>{isArrival ? 'from' : 'to'}</span>
-        <span className={accentColor}>{flight.other_airport_city}</span>
-        <span className="text-gray-500 text-sm font-normal">({flight.other_airport_iata})</span>
-      </div>
-
-      {/* Times */}
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-white font-semibold text-lg">{formatTime(displayTime)}</span>
-        {isDelayed && (
-          <>
-            <span className="text-gray-500 line-through">{formatTime(flight.scheduled_time)}</span>
-            <span className="text-yellow-500 text-xs">+{flight.delay_minutes}m</span>
-          </>
-        )}
-      </div>
-
-      {/* Countdown */}
-      <div className={`text-2xl font-bold ${accentColor}`}>{countdown}</div>
-
-      {/* Aircraft type + visibility */}
-      <div className="flex items-center justify-between">
-        {flight.aircraft_type && (
-          <span className="text-xs text-gray-500 uppercase tracking-widest">
-            {flight.aircraft_type}
+    <div className={`rounded-2xl border ${borderColor} ${bgGlow} overflow-hidden`}>
+      {/* Info stack */}
+      <div className="p-5 space-y-3">
+        {/* Direction label */}
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-bold uppercase tracking-[0.2em] ${accentColor}`}>
+            {isArrival ? '▼ Arriving' : '▲ Departing'}
           </span>
-        )}
-        <VisibilityBadge visible={flight.deck_visible} />
+          <StatusBadge status={flight.status} delayMinutes={flight.delay_minutes} />
+        </div>
+
+        {/* Airline + flight number */}
+        <div className="text-3xl font-bold tracking-tight text-white leading-tight">
+          {flightLabel(flight.flight_number, flight.airline_iata, flight.airline)}
+        </div>
+
+        {/* Origin / destination */}
+        <div className="flex items-center gap-2 text-lg font-semibold text-white">
+          <span>{isArrival ? 'from' : 'to'}</span>
+          <span className={accentColor}>{flight.other_airport_city}</span>
+          <span className="text-gray-500 text-sm font-normal">({flight.other_airport_iata})</span>
+        </div>
+
+        {/* Times */}
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-white font-semibold text-lg">{formatTime(displayTime)}</span>
+          {isDelayed && (
+            <>
+              <span className="text-gray-500 line-through">{formatTime(flight.scheduled_time)}</span>
+              <span className="text-yellow-500 text-xs">+{flight.delay_minutes}m</span>
+            </>
+          )}
+        </div>
+
+        {/* Countdown */}
+        <div className={`text-2xl font-bold ${accentColor}`}>{countdown}</div>
+
+        {/* Aircraft type + visibility */}
+        <div className="flex items-center justify-between">
+          {flight.aircraft_type && (
+            <span className="text-xs text-gray-500 uppercase tracking-widest">
+              {flight.aircraft_type}
+            </span>
+          )}
+          <VisibilityBadge visible={flight.deck_visible} />
+        </div>
       </div>
+
+      {/* Full-width aircraft photo */}
+      {flight.photo_url && (
+        <div className="px-5 pb-5 space-y-1">
+          <a href={flight.photo_link} target="_blank" rel="noopener noreferrer" className="block">
+            <img
+              src={flight.photo_url}
+              alt={`${flight.airline} aircraft`}
+              className="w-full max-w-sm rounded-lg object-cover aspect-[3/2]"
+            />
+          </a>
+          <span className="text-[10px] text-gray-500">
+            {'© '}
+            <a
+              href={flight.photo_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-300"
+            >
+              {flight.photo_photographer}
+            </a>
+            {' / Planespotters.net'}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
