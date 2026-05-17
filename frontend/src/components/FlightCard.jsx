@@ -66,7 +66,7 @@ export default function FlightCard({ flight }) {
             <img
               src={flight.photo_url}
               alt={`${flight.airline} aircraft`}
-              className="w-full rounded-lg object-cover aspect-[3/2]"
+              className="w-full max-w-sm rounded-lg object-cover aspect-[3/2]"
             />
           </a>
           <p className="text-[10px] text-gray-500">

@@ -84,7 +84,7 @@ export default function NextFlight({ flight }) {
             <img
               src={flight.photo_url}
               alt={`${flight.airline} aircraft`}
-              className="w-full rounded-lg object-cover aspect-[3/2]"
+              className="w-full max-w-sm rounded-lg object-cover aspect-[3/2]"
             />
           </a>
           <span className="text-[10px] text-gray-500">
