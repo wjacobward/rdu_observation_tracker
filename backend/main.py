@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import aerodatabox_service
 import flight_service
 
 load_dotenv()
@@ -19,6 +20,12 @@ if not api_key:
     sys.exit(1)
 
 flight_service.configure(api_key)
+
+rapid_api_key = os.getenv("RAPID_API_KEY")
+if not rapid_api_key:
+    logger.warning("RAPID_API_KEY is not set — aircraft type enrichment from AeroDataBox will be skipped.")
+else:
+    aerodatabox_service.configure(rapid_api_key)
 
 app = FastAPI(title="RDU Observation Deck")
 

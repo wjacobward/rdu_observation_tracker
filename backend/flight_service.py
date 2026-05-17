@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+import aerodatabox_service
 from data.aircraft_types import get_aircraft_name
 from data.airline_names import get_airline_name
 from data.airport_cities import get_city_name
@@ -27,6 +28,7 @@ SCHEDULE_FIELDS = (
     "dep_estimated_utc,arr_estimated_utc,"
     "cs_airline_iata,cs_flight_iata"
 )
+LIVE_FIELDS = "flight_iata,aircraft_icao,reg_number"
 
 
 def _parse_time(value: str | None) -> datetime | None:
@@ -100,6 +102,7 @@ def _build_flight(raw: dict[str, Any], direction: str) -> dict[str, Any]:
         "delay_minutes": delay_min,
         "aircraft_code": aircraft_code,
         "aircraft_type": aircraft_name or (aircraft_code or None),
+        "reg_number": raw.get("reg_number"),
     }
 
 
@@ -133,13 +136,35 @@ class FlightCache:
         if not self._api_key:
             raise RuntimeError("AIRLABS_API_KEY is not configured")
         params_base = {"api_key": self._api_key, "fields": SCHEDULE_FIELDS}
-        async with httpx.AsyncClient(timeout=15) as client:
-            arr_resp, dep_resp = await asyncio.gather(
-                client.get(f"{AIRLABS_BASE}/schedules", params={**params_base, "arr_iata": AIRPORT}),
-                client.get(f"{AIRLABS_BASE}/schedules", params={**params_base, "dep_iata": AIRPORT}),
-            )
+        live_params_base = {"api_key": self._api_key, "fields": LIVE_FIELDS}
+
+        async def fetch_airlabs():
+            async with httpx.AsyncClient(timeout=15) as client:
+                responses = await asyncio.gather(
+                    client.get(f"{AIRLABS_BASE}/schedules", params={**params_base, "arr_iata": AIRPORT}),
+                    client.get(f"{AIRLABS_BASE}/schedules", params={**params_base, "dep_iata": AIRPORT}),
+                    client.get(f"{AIRLABS_BASE}/flights", params={**live_params_base, "arr_iata": AIRPORT}),
+                    client.get(f"{AIRLABS_BASE}/flights", params={**live_params_base, "dep_iata": AIRPORT}),
+                )
+            return responses
+
+        (arr_resp, dep_resp, live_arr_resp, live_dep_resp), adb_lookup = await asyncio.gather(
+            fetch_airlabs(),
+            aerodatabox_service.get_aircraft_lookup(),
+        )
+
         arr_resp.raise_for_status()
         dep_resp.raise_for_status()
+        live_arr_resp.raise_for_status()
+        live_dep_resp.raise_for_status()
+
+        live_lookup: dict[str, dict] = {}
+        for item in (*live_arr_resp.json().get("response", []), *live_dep_resp.json().get("response", [])):
+            if item.get("flight_iata"):
+                live_lookup[item["flight_iata"]] = {
+                    "aircraft_icao": item.get("aircraft_icao"),
+                    "reg_number": item.get("reg_number"),
+                }
 
         arrivals_raw = arr_resp.json().get("response", [])
         departures_raw = dep_resp.json().get("response", [])
@@ -148,14 +173,22 @@ class FlightCache:
         for raw in arrivals_raw:
             if raw.get("cs_airline_iata") or raw.get("cs_flight_iata"):
                 continue
+            if not raw.get("aircraft_icao") and raw.get("flight_iata") in live_lookup:
+                raw.update(live_lookup[raw["flight_iata"]])
             flight = _build_flight(raw, "arrival")
             if flight:
+                if not flight["aircraft_type"] and flight["flight_number"] in adb_lookup:
+                    flight["aircraft_type"] = adb_lookup[flight["flight_number"]]
                 flights.append(flight)
         for raw in departures_raw:
             if raw.get("cs_airline_iata") or raw.get("cs_flight_iata"):
                 continue
+            if not raw.get("aircraft_icao") and raw.get("flight_iata") in live_lookup:
+                raw.update(live_lookup[raw["flight_iata"]])
             flight = _build_flight(raw, "departure")
             if flight:
+                if not flight["aircraft_type"] and flight["flight_number"] in adb_lookup:
+                    flight["aircraft_type"] = adb_lookup[flight["flight_number"]]
                 flights.append(flight)
 
         flights.sort(key=_effective_time)
